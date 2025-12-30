@@ -100,6 +100,13 @@ auto z = x * x;  // 或 mul(x, x)
 // 自动微分
 z->backward();
 // x->grad 现在包含梯度
+
+// 打印计算图（文本格式）
+z->print_graph();
+
+// 生成DOT格式的计算图（可用于Graphviz可视化）
+std::string dot_graph = z->to_dot();
+std::cout << dot_graph << std::endl;
 ```
 
 ## 特性
@@ -111,6 +118,24 @@ z->backward();
 - ✅ 多层感知机（MLP）
 - ✅ 优化器（SGD, MomentumSGD）
 - ✅ 损失函数（均方误差）
+- ✅ 计算图可视化（文本格式和DOT格式）
+
+## 计算图可视化
+
+MiniTensor支持打印和可视化计算图：
+
+### 文本格式
+```cpp
+tensor->print_graph();  // 打印到std::cout
+tensor->print_graph(std::cout, false);  // 文本格式
+```
+
+### DOT格式（Graphviz）
+```cpp
+std::string dot = tensor->to_dot();
+// 可以将dot字符串保存到文件，然后用Graphviz渲染：
+// dot -Tpng graph.dot -o graph.png
+```
 
 ## 注意事项
 

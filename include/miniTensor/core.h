@@ -8,6 +8,9 @@
 #include <unordered_set>
 #include <algorithm>
 #include <iostream>
+#include <sstream>
+#include <typeinfo>
+#include <map>
 #include <Eigen/Dense>
 
 namespace miniTensor {
@@ -55,6 +58,10 @@ public:
     
     std::string repr() const;
     std::string toString() const;  // Java-style toString method
+    
+    // Computation graph visualization
+    void print_graph(std::ostream& os = std::cout, bool dot_format = false) const;
+    std::string to_dot() const;
 };
 
 // Stream output operator (like std::cout << tensor)
@@ -80,6 +87,16 @@ public:
 std::shared_ptr<Tensor> as_tensor(const std::shared_ptr<Tensor>& obj);
 std::shared_ptr<Tensor> as_tensor(const Array& obj);
 std::shared_ptr<Tensor> as_tensor(float scalar);
+
+// Computation graph visualization
+std::string get_function_type_name(const Function* func);
+void print_computation_graph(const std::shared_ptr<Tensor>& tensor, 
+                            std::ostream& os = std::cout, 
+                            bool dot_format = false);
+void print_computation_graph(const Tensor* tensor, 
+                            std::ostream& os = std::cout, 
+                            bool dot_format = false);
+std::string computation_graph_to_dot(const std::shared_ptr<Tensor>& tensor);
 
 // Context manager for config
 class ConfigContext {

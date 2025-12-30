@@ -1,9 +1,16 @@
 #include "miniTensor/core.h"
+#include "miniTensor/functions.h"
 #include <sstream>
 #include <cmath>
 #include <iostream>
 #include <algorithm>
 #include <unordered_set>
+#include <typeinfo>
+#include <map>
+#include <iomanip>
+#ifdef __GNUC__
+#include <cxxabi.h>
+#endif
 
 namespace miniTensor {
 
@@ -322,6 +329,316 @@ Parameter::Parameter(const Array& data, const std::string& name)
 
 Parameter::Parameter(float scalar, const std::string& name)
     : Tensor(scalar, name) {
+}
+
+// Get function type name (demangle C++ type names)
+std::string get_function_type_name(const Function* func) {
+    if (!func) return "None";
+    
+    const char* name = typeid(*func).name();
+    
+    // Try to demangle (works on GCC/Clang)
+    #ifdef __GNUC__
+        int status = 0;
+        char* demangled = abi::__cxa_demangle(name, nullptr, nullptr, &status);
+        if (status == 0 && demangled) {
+            std::string result(demangled);
+            free(demangled);
+            // Extract class name (remove namespace)
+            size_t pos = result.find_last_of("::");
+            if (pos != std::string::npos) {
+                result = result.substr(pos + 1);
+            }
+            return result;
+        }
+    #endif
+    
+    // Fallback: return raw name or simplified version
+    std::string result(name);
+    // Remove common prefixes
+    if (result.find("N11miniTensor") == 0) {
+        // Try to extract class name from mangled name
+        size_t pos = result.find_last_of("E");
+        if (pos != std::string::npos && pos > 0) {
+            // Look for class name before 'E'
+            size_t start = pos - 1;
+            while (start > 0 && std::isdigit(result[start])) start--;
+            if (start < pos - 1) {
+                result = result.substr(start + 1, pos - start - 1);
+            }
+        }
+    }
+    return result.empty() ? "Function" : result;
+}
+
+// Helper function to collect all nodes in computation graph
+void collect_graph_nodes(const Tensor* tensor,
+                        std::map<const Tensor*, int>& tensor_ids,
+                        std::map<const Function*, int>& func_ids,
+                        std::vector<const Tensor*>& tensors,
+                        std::vector<const Function*>& functions,
+                        int& next_tensor_id,
+                        int& next_func_id) {
+    if (!tensor) return;
+    
+    // Assign ID to tensor if not seen
+    if (tensor_ids.find(tensor) == tensor_ids.end()) {
+        tensor_ids[tensor] = next_tensor_id++;
+        tensors.push_back(tensor);
+    }
+    
+    // Process creator function
+    if (tensor->creator) {
+        auto func = tensor->creator.get();
+        if (func_ids.find(func) == func_ids.end()) {
+            func_ids[func] = next_func_id++;
+            functions.push_back(func);
+            
+            // Recursively process inputs (these are shared_ptr, so safe to use)
+            for (auto& input : func->inputs) {
+                if (input) {
+                    collect_graph_nodes(input.get(), tensor_ids, func_ids, tensors, functions, 
+                                      next_tensor_id, next_func_id);
+                }
+            }
+        }
+    }
+}
+
+// Print computation graph in text format
+void print_computation_graph(const std::shared_ptr<Tensor>& tensor, 
+                            std::ostream& os, 
+                            bool dot_format) {
+    if (!tensor) {
+        os << "Empty tensor\n";
+        return;
+    }
+    
+    if (dot_format) {
+        os << computation_graph_to_dot(tensor);
+        return;
+    }
+    
+    std::map<const Tensor*, int> tensor_ids;
+    std::map<const Function*, int> func_ids;
+    std::vector<const Tensor*> tensors;
+    std::vector<const Function*> functions;
+    int next_tensor_id = 0;
+    int next_func_id = 0;
+    
+    // Collect all nodes
+    collect_graph_nodes(tensor.get(), tensor_ids, func_ids, tensors, functions, 
+                       next_tensor_id, next_func_id);
+    
+    os << "=== Computation Graph ===\n\n";
+    
+    // Print tensors
+    os << "Tensors:\n";
+    for (const auto* t : tensors) {
+        int id = tensor_ids[t];
+        os << "  T" << id;
+        if (!t->name.empty()) {
+            os << " (" << t->name << ")";
+        }
+        auto shape = t->shape();
+        os << ": shape=(" << shape.first << ", " << shape.second << ")";
+        if (t->creator) {
+            os << " <- " << get_function_type_name(t->creator.get());
+        } else {
+            os << " [leaf]";
+        }
+        os << "\n";
+    }
+    
+    os << "\nFunctions:\n";
+    for (const auto* f : functions) {
+        int id = func_ids[f];
+        os << "  F" << id << ": " << get_function_type_name(f);
+        os << " (generation=" << f->generation << ")";
+        os << "\n    Inputs: ";
+        for (size_t i = 0; i < f->inputs.size(); ++i) {
+            if (f->inputs[i]) {
+                os << "T" << tensor_ids[f->inputs[i].get()];
+                if (i < f->inputs.size() - 1) os << ", ";
+            }
+        }
+        os << "\n    Outputs: ";
+        bool first = true;
+        for (auto& output : f->outputs) {
+            if (auto output_ptr = output.lock()) {
+                if (!first) os << ", ";
+                os << "T" << tensor_ids[output_ptr.get()];
+                first = false;
+            }
+        }
+        os << "\n";
+    }
+    
+    os << "\nRoot Tensor: T" << tensor_ids[tensor.get()] << "\n";
+}
+
+// Overload for const Tensor*
+void print_computation_graph(const Tensor* tensor, 
+                            std::ostream& os, 
+                            bool dot_format) {
+    if (!tensor) {
+        os << "Empty tensor\n";
+        return;
+    }
+    
+    if (dot_format) {
+        // For const Tensor*, we can't easily get shared_ptr, so create a temporary
+        // This is safe since we're only reading
+        auto temp = std::shared_ptr<Tensor>(const_cast<Tensor*>(tensor), [](Tensor*){});
+        os << computation_graph_to_dot(temp);
+        return;
+    }
+    
+    std::map<const Tensor*, int> tensor_ids;
+    std::map<const Function*, int> func_ids;
+    std::vector<const Tensor*> tensors;
+    std::vector<const Function*> functions;
+    int next_tensor_id = 0;
+    int next_func_id = 0;
+    
+    // Collect all nodes
+    collect_graph_nodes(tensor, tensor_ids, func_ids, tensors, functions, 
+                       next_tensor_id, next_func_id);
+    
+    os << "=== Computation Graph ===\n\n";
+    
+    // Print tensors
+    os << "Tensors:\n";
+    for (const auto* t : tensors) {
+        int id = tensor_ids[t];
+        os << "  T" << id;
+        if (!t->name.empty()) {
+            os << " (" << t->name << ")";
+        }
+        auto shape = t->shape();
+        os << ": shape=(" << shape.first << ", " << shape.second << ")";
+        if (t->creator) {
+            os << " <- " << get_function_type_name(t->creator.get());
+        } else {
+            os << " [leaf]";
+        }
+        os << "\n";
+    }
+    
+    os << "\nFunctions:\n";
+    for (const auto* f : functions) {
+        int id = func_ids[f];
+        os << "  F" << id << ": " << get_function_type_name(f);
+        os << " (generation=" << f->generation << ")";
+        os << "\n    Inputs: ";
+        for (size_t i = 0; i < f->inputs.size(); ++i) {
+            if (f->inputs[i]) {
+                os << "T" << tensor_ids[f->inputs[i].get()];
+                if (i < f->inputs.size() - 1) os << ", ";
+            }
+        }
+        os << "\n    Outputs: ";
+        bool first = true;
+        for (auto& output : f->outputs) {
+            if (auto output_ptr = output.lock()) {
+                if (!first) os << ", ";
+                os << "T" << tensor_ids[output_ptr.get()];
+                first = false;
+            }
+        }
+        os << "\n";
+    }
+    
+    os << "\nRoot Tensor: T" << tensor_ids[tensor] << "\n";
+}
+
+// Generate DOT format for graphviz
+std::string computation_graph_to_dot(const std::shared_ptr<Tensor>& tensor) {
+    if (!tensor) {
+        return "digraph G { empty [label=\"Empty tensor\"]; }";
+    }
+    
+    std::map<const Tensor*, int> tensor_ids;
+    std::map<const Function*, int> func_ids;
+    std::vector<const Tensor*> tensors;
+    std::vector<const Function*> functions;
+    int next_tensor_id = 0;
+    int next_func_id = 0;
+    
+    // Collect all nodes
+    collect_graph_nodes(tensor.get(), tensor_ids, func_ids, tensors, functions, 
+                       next_tensor_id, next_func_id);
+    
+    std::ostringstream oss;
+    oss << "digraph ComputationGraph {\n";
+    oss << "  rankdir=LR;\n";
+    oss << "  node [shape=box, style=rounded];\n\n";
+    
+    // Add tensor nodes
+    for (const auto* t : tensors) {
+        int id = tensor_ids[t];
+        std::string label = "T" + std::to_string(id);
+        if (!t->name.empty()) {
+            label += "\\n" + t->name;
+        }
+        auto shape = t->shape();
+        label += "\\nshape=(" + std::to_string(shape.first) + "," + std::to_string(shape.second) + ")";
+        
+        std::string color = t->creator ? "lightblue" : "lightgreen";
+        oss << "  T" << id << " [label=\"" << label << "\", fillcolor=" << color 
+            << ", style=\"rounded,filled\"];\n";
+    }
+    
+    // Add function nodes
+    for (const auto* f : functions) {
+        int id = func_ids[f];
+        std::string func_name = get_function_type_name(f);
+        oss << "  F" << id << " [label=\"" << func_name << "\", shape=ellipse, "
+            << "fillcolor=lightyellow, style=filled];\n";
+    }
+    
+    oss << "\n";
+    
+    // Add edges: function -> output tensor
+    for (const auto* f : functions) {
+        int func_id = func_ids[f];
+        for (auto& output : f->outputs) {
+            if (auto output_ptr = output.lock()) {
+                int tensor_id = tensor_ids[output_ptr.get()];
+                oss << "  F" << func_id << " -> T" << tensor_id << ";\n";
+            }
+        }
+    }
+    
+    // Add edges: input tensor -> function
+    for (const auto* f : functions) {
+        int func_id = func_ids[f];
+        for (size_t i = 0; i < f->inputs.size(); ++i) {
+            if (f->inputs[i]) {
+                int tensor_id = tensor_ids[f->inputs[i].get()];
+                oss << "  T" << tensor_id << " -> F" << func_id;
+                if (f->inputs.size() > 1) {
+                    oss << " [label=\"in" << i << "\"]";
+                }
+                oss << ";\n";
+            }
+        }
+    }
+    
+    oss << "}\n";
+    return oss.str();
+}
+
+// Tensor methods for graph visualization
+void Tensor::print_graph(std::ostream& os, bool dot_format) const {
+    print_computation_graph(this, os, dot_format);
+}
+
+std::string Tensor::to_dot() const {
+    // For DOT format, we need shared_ptr for the recursive collection
+    // Create a temporary shared_ptr (safe since we're only reading)
+    auto temp = std::shared_ptr<Tensor>(const_cast<Tensor*>(this), [](Tensor*){});
+    return computation_graph_to_dot(temp);
 }
 
 } // namespace miniTensor
