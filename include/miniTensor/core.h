@@ -7,6 +7,7 @@
 #include <functional>
 #include <unordered_set>
 #include <algorithm>
+#include <iostream>
 #include <Eigen/Dense>
 
 namespace miniTensor {
@@ -53,7 +54,12 @@ public:
     // Note: Operators are implemented via free functions in functions.h
     
     std::string repr() const;
+    std::string toString() const;  // Java-style toString method
 };
+
+// Stream output operator (like std::cout << tensor)
+std::ostream& operator<<(std::ostream& os, const Tensor& tensor);
+std::ostream& operator<<(std::ostream& os, const std::shared_ptr<Tensor>& tensor);
 
 // Function base class for automatic differentiation
 class Function : public std::enable_shared_from_this<Function> {

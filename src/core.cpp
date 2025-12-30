@@ -160,16 +160,111 @@ int Tensor::size() const {
     return data.size();
 }
 
+// Helper function to format a float value in Python style
+std::string format_float(float val) {
+    std::ostringstream oss;
+    oss.precision(6);
+    oss << std::fixed << val;
+    std::string str = oss.str();
+    // Remove trailing zeros after decimal point
+    size_t pos = str.find_last_not_of('0');
+    if (pos != std::string::npos && str[pos] == '.') {
+        pos++;  // Keep one zero after decimal
+    }
+    if (pos != std::string::npos) {
+        str.erase(pos + 1);
+    }
+    return str;
+}
+
+// Helper function to format array in Python style
+std::string format_array_python_style(const Array& arr) {
+    std::ostringstream oss;
+    int rows = arr.rows();
+    int cols = arr.cols();
+    
+    if (rows == 0 || cols == 0) {
+        oss << "[]";
+        return oss.str();
+    }
+    
+    // For 1x1 scalar
+    if (rows == 1 && cols == 1) {
+        oss << format_float(arr(0, 0));
+        return oss.str();
+    }
+    
+    // For row vector (1xN)
+    if (rows == 1) {
+        oss << "[";
+        for (int j = 0; j < cols; ++j) {
+            oss << format_float(arr(0, j));
+            if (j < cols - 1) oss << ", ";
+        }
+        oss << "]";
+        return oss.str();
+    }
+    
+    // For column vector (Nx1)
+    if (cols == 1) {
+        oss << "[";
+        for (int i = 0; i < rows; ++i) {
+            oss << "\n        [" << format_float(arr(i, 0)) << "]";
+            if (i < rows - 1) oss << ",";
+        }
+        oss << "\n    ]";
+        return oss.str();
+    }
+    
+    // For 2D matrix
+    oss << "[";
+    for (int i = 0; i < rows; ++i) {
+        oss << "\n        [";
+        for (int j = 0; j < cols; ++j) {
+            oss << format_float(arr(i, j));
+            if (j < cols - 1) oss << ", ";
+        }
+        oss << "]";
+        if (i < rows - 1) oss << ",";
+    }
+    oss << "\n    ]";
+    return oss.str();
+}
+
 std::string Tensor::repr() const {
     std::ostringstream oss;
-    oss << "variable(";
+    
     if (data.size() == 0) {
-        oss << "None";
+        oss << "tensor([])";
     } else {
-        oss << "\n" << data;
+        oss << "tensor(" << format_array_python_style(data) << ")";
     }
-    oss << ")";
+    
+    // 如果有 grad，也输出 grad
+    if (grad != nullptr) {
+        oss << ", grad=tensor(" << format_array_python_style(grad->data) << ")";
+    }
+    
     return oss.str();
+}
+
+std::string Tensor::toString() const {
+    return repr();  // Java-style toString, delegates to repr()
+}
+
+// Stream output operator implementation
+std::ostream& operator<<(std::ostream& os, const Tensor& tensor) {
+    os << tensor.toString();
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const std::shared_ptr<Tensor>& tensor) {
+    if (tensor) {
+        os << tensor->toString();
+    } else {
+        os << "nullptr";
+    }
+    return os;
 }
 
 // Function implementation
