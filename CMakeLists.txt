@@ -72,12 +72,19 @@ target_include_directories(miniTensor PUBLIC
     ${EIGEN3_INCLUDE_DIR}
 )
 
-# Create example executable
+# Create example executables
 add_executable(miniTensor_example examples/main.cpp)
 target_link_libraries(miniTensor_example miniTensor)
 
+add_executable(dnn_training_example examples/dnn_training_example.cpp)
+target_link_libraries(dnn_training_example miniTensor)
+
 # Set output directory
 set_target_properties(miniTensor_example PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+set_target_properties(dnn_training_example PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 

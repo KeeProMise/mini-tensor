@@ -69,12 +69,11 @@ std::shared_ptr<Tensor> Linear::forward(const std::shared_ptr<Tensor>& x) {
         in_size_ = x->data.cols();
         init_W();
     }
-    
+
     if (b_) {
-        return linear_func(x, std::make_shared<Tensor>(W_->data), std::make_shared<Tensor>(b_->data));
-    } else {
-        return linear_func(x, std::make_shared<Tensor>(W_->data), nullptr);
+        return linear_func(x, W_, b_);
     }
+    return linear_func(x, W_, nullptr);
 }
 
 std::vector<std::shared_ptr<Parameter>> Linear::params() {

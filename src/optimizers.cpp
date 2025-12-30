@@ -1,5 +1,6 @@
 #include "miniTensor/optimizers.h"
 #include <unordered_map>
+#include <cmath>
 
 namespace miniTensor {
 
@@ -43,7 +44,19 @@ SGD::SGD(float lr) : lr_(lr) {
 
 void SGD::update_one(std::shared_ptr<Parameter> param) {
     if (param->grad) {
-        param->data -= lr_ * param->grad->data;
+        // 检查梯度是否为NaN或Inf
+        bool has_nan = false;
+        bool has_inf = false;
+        for (int i = 0; i < param->grad->data.rows(); ++i) {
+            for (int j = 0; j < param->grad->data.cols(); ++j) {
+                float val = param->grad->data(i, j);
+                if (std::isnan(val)) has_nan = true;
+                if (std::isinf(val)) has_inf = true;
+            }
+        }
+        if (!has_nan && !has_inf) {
+            param->data -= lr_ * param->grad->data;
+        }
     }
 }
 
