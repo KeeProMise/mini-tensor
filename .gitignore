@@ -1,13 +1,28 @@
+# Build directories
 build/
+cmake-build-debug/
+bin/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Compiled files
 *.o
 *.a
 *.so
 *.dylib
 *.exe
-.idea
-bin/
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
 
