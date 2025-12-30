@@ -2,15 +2,15 @@
 
 ## 问题背景
 
-在自动微分框架中，`Variable` 需要保存创建它的 `Function` 的引用（通过 `creator` 指针），以便在反向传播时能够访问该函数的 `inputs` 和 `outputs`。
+在自动微分框架中，`Tensor` 需要保存创建它的 `Function` 的引用（通过 `creator` 指针），以便在反向传播时能够访问该函数的 `inputs` 和 `outputs`。
 
 ## 问题1：局部对象生命周期问题
 
 ### 错误的实现（使用原始指针）
 
 ```cpp
-std::shared_ptr<Variable> mul(const std::shared_ptr<Variable>& x0, 
-                              const std::shared_ptr<Variable>& x1) {
+std::shared_ptr<Tensor> mul(const std::shared_ptr<Tensor>& x0, 
+                              const std::shared_ptr<Tensor>& x1) {
     Mul func;  // 局部对象
     auto result = func.call({x0, x1});
     // func.call() 内部会执行：
@@ -27,8 +27,8 @@ std::shared_ptr<Variable> mul(const std::shared_ptr<Variable>& x0,
 ### 正确的实现（使用 shared_ptr）
 
 ```cpp
-std::shared_ptr<Variable> mul(const std::shared_ptr<Variable>& x0, 
-                              const std::shared_ptr<Variable>& x1) {
+std::shared_ptr<Tensor> mul(const std::shared_ptr<Tensor>& x0, 
+                              const std::shared_ptr<Tensor>& x1) {
     auto func = std::make_shared<Mul>();  // 使用 shared_ptr
     auto result = func->call({x0, x1});
     // func->call() 内部会执行：
@@ -42,12 +42,12 @@ std::shared_ptr<Variable> mul(const std::shared_ptr<Variable>& x0,
 - `result->creator` 持有 `func` 的引用，确保 `func` 在需要时保持存活
 - 当 `result` 和所有引用都被销毁时，`func` 才会被自动清理
 
-## 问题2：多个 Variable 可能共享同一个 Function
+## 问题2：多个 Tensor 可能共享同一个 Function
 
-在计算图中，一个 `Function` 可能被多个 `Variable` 引用：
+在计算图中，一个 `Function` 可能被多个 `Tensor` 引用：
 
 ```cpp
-auto a = Variable(2);
+auto a = Tensor(2);
 auto b = mul(a, a);  // b->creator 指向 Mul 对象
 auto c = mul(b, a);  // c->creator 指向另一个 Mul 对象
 // 在 backward() 中，可能需要访问这些 Function 对象
@@ -64,7 +64,7 @@ auto c = mul(b, a);  // c->creator 指向另一个 Mul 对象
 
 ### ❌ unique_ptr
 - 独占所有权，不能共享
-- 多个 Variable 不能同时持有同一个 Function 的引用
+- 多个 Tensor 不能同时持有同一个 Function 的引用
 
 ### ✅ shared_ptr
 - 共享所有权
@@ -86,24 +86,24 @@ class Function : public std::enable_shared_from_this<Function> {
 
 ```cpp
 std::shared_ptr<Function> self_ptr = shared_from_this();
-output->set_creator(self_ptr);  // Variable 持有 Function 的引用
+output->set_creator(self_ptr);  // Tensor 持有 Function 的引用
 ```
 
-### 2. Variable 使用 shared_ptr 存储 creator
+### 2. Tensor 使用 shared_ptr 存储 creator
 
 ```cpp
-class Variable {
+class Tensor {
     std::shared_ptr<Function> creator;  // 而不是 Function*
     // ...
 };
 ```
 
-这样确保了 `Function` 对象在 `Variable` 存在期间保持存活。
+这样确保了 `Function` 对象在 `Tensor` 存在期间保持存活。
 
 ## 生命周期示例
 
 ```cpp
-auto a = Variable(2);
+auto a = Tensor(2);
 auto b = mul(a, a);  
 // b->creator 持有 Mul 的 shared_ptr，引用计数 = 1
 
@@ -122,7 +122,7 @@ c->backward();
 
 使用 `shared_ptr` 是为了：
 1. **解决生命周期问题**：确保 `Function` 对象在需要时保持存活
-2. **支持共享所有权**：多个 `Variable` 可以安全地引用同一个 `Function`
+2. **支持共享所有权**：多个 `Tensor` 可以安全地引用同一个 `Function`
 3. **自动内存管理**：避免手动管理内存，减少内存泄漏和悬空指针的风险
 4. **符合 C++ 最佳实践**：使用智能指针管理资源
 

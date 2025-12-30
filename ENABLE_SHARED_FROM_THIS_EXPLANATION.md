@@ -8,11 +8,11 @@
 
 ### 问题场景
 
-在 `Function::call()` 方法中，我们需要将 `this`（当前 Function 对象）保存到 `Variable` 的 `creator` 中：
+在 `Function::call()` 方法中，我们需要将 `this`（当前 Function 对象）保存到 `Tensor` 的 `creator` 中：
 
 ```cpp
 class Function {
-    std::shared_ptr<Variable> call(...) {
+    std::shared_ptr<Tensor> call(...) {
         // 我们需要将 this 转换为 shared_ptr<Function>
         // 但是 this 是原始指针，不能直接转换
         output->creator = ???;  // 如何获取指向 this 的 shared_ptr？
@@ -36,7 +36,7 @@ output->creator = this;
 
 ```cpp
 class Function : public std::enable_shared_from_this<Function> {
-    std::shared_ptr<Variable> call(...) {
+    std::shared_ptr<Tensor> call(...) {
         // ✅ 正确：获取指向 this 的 shared_ptr
         std::shared_ptr<Function> self_ptr = shared_from_this();
         output->creator = self_ptr;
@@ -85,13 +85,13 @@ std::shared_ptr<Function> self_ptr = shared_from_this();
 ```cpp
 // 1. Function 继承 enable_shared_from_this
 class Function : public std::enable_shared_from_this<Function> {
-    std::shared_ptr<Variable> call(...) {
+    std::shared_ptr<Tensor> call(...) {
         // ...
         if (Config::enable_backprop) {
             // 2. 获取指向自身的 shared_ptr
             std::shared_ptr<Function> self_ptr = shared_from_this();
             
-            // 3. 保存到 Variable 的 creator 中
+            // 3. 保存到 Tensor 的 creator 中
             for (auto& output : outputs) {
                 output->set_creator(self_ptr);
             }
@@ -100,7 +100,7 @@ class Function : public std::enable_shared_from_this<Function> {
 };
 
 // 4. 使用 make_shared 创建 Function
-std::shared_ptr<Variable> mul(...) {
+std::shared_ptr<Tensor> mul(...) {
     auto func = std::make_shared<Mul>();  // 必须用 shared_ptr
     return func->call({x0, x1});  // 现在可以安全使用 shared_from_this()
 }
@@ -172,5 +172,5 @@ auto self = func->shared_from_this();  // 引用计数 = 2
 2. **确保引用计数正确管理**（不会创建多个独立的 shared_ptr）
 3. **安全地共享对象所有权**（多个 shared_ptr 共享同一个对象）
 
-在我们的场景中，它解决了"Function 对象需要在内部将自己保存到 Variable 的 creator 中"的问题，同时确保了正确的生命周期管理。
+在我们的场景中，它解决了"Function 对象需要在内部将自己保存到 Tensor 的 creator 中"的问题，同时确保了正确的生命周期管理。
 

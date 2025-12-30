@@ -1,6 +1,6 @@
-# DeZero C++ Implementation
+# MiniTensor C++ Implementation
 
-这是DeZero深度学习框架的C++实现版本。
+这是MiniTensor深度学习框架的C++实现版本。
 
 ## 依赖
 
@@ -41,7 +41,7 @@ make
 ## 运行
 
 ```bash
-./bin/dezero_example
+./bin/miniTensor_example
 ```
 
 ## 项目结构
@@ -50,13 +50,13 @@ make
 cpp/app/
 ├── CMakeLists.txt          # CMake构建配置
 ├── include/                 # 头文件目录
-│   └── dezero/             # DeZero命名空间
+│   └── miniTensor/         # MiniTensor命名空间
 │       ├── core.h          # 核心自动微分系统
 │       ├── functions.h     # 数学函数
 │       ├── layers.h        # 神经网络层
 │       ├── models.h        # 模型定义
 │       ├── optimizers.h    # 优化器
-│       └── dezero.h        # 主头文件（包含所有功能）
+│       └── miniTensor.h    # 主头文件（包含所有功能）
 ├── src/                     # 源文件目录
 │   ├── core.cpp
 │   ├── functions.cpp
@@ -70,12 +70,12 @@ cpp/app/
 
 ## 使用库
 
-在你的项目中使用DeZero库：
+在你的项目中使用MiniTensor库：
 
 ```cpp
-#include "dezero/dezero.h"  // 或单独包含需要的头文件
+#include "miniTensor/miniTensor.h"  // 或单独包含需要的头文件
 
-using namespace dezero;
+using namespace miniTensor;
 
 // 你的代码...
 ```
@@ -83,20 +83,20 @@ using namespace dezero;
 ## 使用示例
 
 ```cpp
-#include "dezero/dezero.h"  // 或单独包含需要的头文件
+#include "miniTensor/miniTensor.h"  // 或单独包含需要的头文件
 #include <Eigen/Dense>
 
-using namespace dezero;
+using namespace miniTensor;
 using namespace Eigen;
 
-// 创建变量
+// 创建张量
 Array data(2, 2);
 data << 1.0f, 2.0f, 3.0f, 4.0f;
-auto x = std::make_shared<Variable>(data);
+auto x = std::make_shared<Tensor>(data);
 
-// 执行运算
-auto y = add(x, x);
-auto z = mul(x, x);
+// 执行运算（使用操作符重载）
+auto y = x + x;  // 或 add(x, x)
+auto z = x * x;  // 或 mul(x, x)
 
 // 自动微分
 z->backward();

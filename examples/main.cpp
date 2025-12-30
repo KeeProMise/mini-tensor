@@ -20,11 +20,18 @@ int main() {
     auto x = std::make_shared<Tensor>(x_data);
     std::cout << "x = " << std::endl << x->data << std::endl;
   
-    auto y = add(x, x);
+    // Using operator overloads
+    auto y = x + x;  // Instead of add(x, x)
     std::cout << "x + x = " << std::endl << y->data << std::endl;
     
-    auto z = mul(x, x);
-    std::cout << "x * x = " << std::endl << z->data << std::endl << std::endl;
+    auto z = x * x;  // Instead of mul(x, x)
+    std::cout << "x * x = " << std::endl << z->data << std::endl;
+    
+    auto w = x - x;  // Subtraction
+    std::cout << "x - x = " << std::endl << w->data << std::endl;
+    
+    auto v = x / x;  // Division
+    std::cout << "x / x = " << std::endl << v->data << std::endl << std::endl;
 
     // Example 2: Automatic differentiation
     std::cout << "Example 2: Automatic Differentiation" << std::endl;
@@ -32,8 +39,8 @@ int main() {
     a_data << 2.0f;
     auto a = std::make_shared<Tensor>(a_data);
     
-    auto b = mul(a, a);  // b = a^2
-    auto c = mul(b, a);  // c = a^3
+    auto b = a * a;  // b = a^2 (using operator*)
+    auto c = b * a;  // c = a^3 (using operator*)
     
     c->backward();
     std::cout << "a = " << a->data(0, 0) << std::endl;

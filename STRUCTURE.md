@@ -1,4 +1,4 @@
-# DeZero C++ 项目结构说明
+# MiniTensor C++ 项目结构说明
 
 本项目按照标准的C++项目结构组织，符合CMake最佳实践。
 
@@ -13,13 +13,13 @@ cpp/app/
 ├── .clang-format          # 代码格式化配置
 │
 ├── include/                # 公共头文件目录
-│   └── dezero/            # 命名空间目录
+│   └── miniTensor/        # 命名空间目录
 │       ├── core.h         # 核心自动微分系统
 │       ├── functions.h    # 数学函数定义
 │       ├── layers.h       # 神经网络层定义
 │       ├── models.h       # 模型定义
 │       ├── optimizers.h   # 优化器定义
-│       └── dezero.h       # 主头文件（包含所有功能）
+│       └── miniTensor.h   # 主头文件（包含所有功能）
 │
 ├── src/                    # 源文件目录
 │   ├── core.cpp           # 核心实现
@@ -35,14 +35,14 @@ cpp/app/
 ## 设计原则
 
 ### 1. 头文件组织
-- 所有公共头文件放在 `include/dezero/` 目录下
-- 头文件使用命名空间 `dezero`
+- 所有公共头文件放在 `include/miniTensor/` 目录下
+- 头文件使用命名空间 `miniTensor`
 - 头文件之间使用相对路径引用（如 `#include "core.h"`）
-- 提供 `dezero.h` 作为统一入口，包含所有功能
+- 提供 `miniTensor.h` 作为统一入口，包含所有功能
 
 ### 2. 源文件组织
 - 所有实现文件放在 `src/` 目录下
-- 源文件使用完整路径引用头文件（如 `#include "dezero/core.h"`）
+- 源文件使用完整路径引用头文件（如 `#include "miniTensor/core.h"`）
 - 源文件与头文件一一对应
 
 ### 3. CMake配置
@@ -55,7 +55,7 @@ cpp/app/
 ### 4. 命名规范
 - 头文件使用 `.h` 扩展名
 - 源文件使用 `.cpp` 扩展名
-- 头文件保护宏使用 `DEZERO_*_H` 格式
+- 头文件保护宏使用 `MINITENSOR_*_H` 格式
 - 类名使用PascalCase
 - 函数名使用snake_case
 
@@ -71,27 +71,27 @@ make
 ### 使用库
 ```cpp
 // 方式1: 包含主头文件（推荐）
-#include "dezero/dezero.h"
+#include "miniTensor/miniTensor.h"
 
 // 方式2: 按需包含
-#include "dezero/core.h"
-#include "dezero/functions.h"
+#include "miniTensor/core.h"
+#include "miniTensor/functions.h"
 ```
 
 ### 链接库
 在CMakeLists.txt中：
 ```cmake
-target_link_libraries(your_target dezero)
+target_link_libraries(your_target miniTensor)
 target_include_directories(your_target PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 ```
 
 ## 扩展项目
 
 添加新功能时：
-1. 在 `include/dezero/` 添加头文件
+1. 在 `include/miniTensor/` 添加头文件
 2. 在 `src/` 添加对应的实现文件
-3. 在 `CMakeLists.txt` 的 `DEZERO_SOURCES` 和 `DEZERO_HEADERS` 中添加新文件
-4. 如需导出，在 `dezero.h` 中包含新头文件
+3. 在 `CMakeLists.txt` 的 `MINITENSOR_SOURCES` 和 `MINITENSOR_HEADERS` 中添加新文件
+4. 如需导出，在 `miniTensor.h` 中包含新头文件
 
 ## 符合的标准
 

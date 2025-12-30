@@ -107,7 +107,7 @@ make
 构建成功后：
 
 ```bash
-./bin/dezero_example
+./bin/miniTensor_example
 ```
 
 ## 常见问题
@@ -137,6 +137,6 @@ make
 ## 验证构建
 
 构建成功后，应该生成以下文件：
-- `build/libdezero.a` - 静态库
-- `build/bin/dezero_example` - 示例可执行文件
+- `build/libminiTensor.a` - 静态库
+- `build/bin/miniTensor_example` - 示例可执行文件
 

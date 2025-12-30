@@ -532,5 +532,79 @@ std::shared_ptr<Tensor> sigmoid(const std::shared_ptr<Tensor>& x) {
     return func->call({x});
 }
 
+// Operator overloads implementation
+// Addition: x + y
+std::shared_ptr<Tensor> operator+(const std::shared_ptr<Tensor>& x0, 
+                                  const std::shared_ptr<Tensor>& x1) {
+    return add(x0, x1);
+}
+
+std::shared_ptr<Tensor> operator+(const std::shared_ptr<Tensor>& x, float c) {
+    Array c_array = as_array(c);
+    auto c_tensor = std::make_shared<Tensor>(c_array);
+    return add(x, c_tensor);
+}
+
+std::shared_ptr<Tensor> operator+(float c, const std::shared_ptr<Tensor>& x) {
+    return operator+(x, c);  // Commutative
+}
+
+// Subtraction: x - y
+std::shared_ptr<Tensor> operator-(const std::shared_ptr<Tensor>& x0, 
+                                  const std::shared_ptr<Tensor>& x1) {
+    return sub(x0, x1);
+}
+
+std::shared_ptr<Tensor> operator-(const std::shared_ptr<Tensor>& x, float c) {
+    Array c_array = as_array(c);
+    auto c_tensor = std::make_shared<Tensor>(c_array);
+    return sub(x, c_tensor);
+}
+
+std::shared_ptr<Tensor> operator-(float c, const std::shared_ptr<Tensor>& x) {
+    Array c_array = as_array(c);
+    auto c_tensor = std::make_shared<Tensor>(c_array);
+    return sub(c_tensor, x);
+}
+
+// Unary minus: -x
+std::shared_ptr<Tensor> operator-(const std::shared_ptr<Tensor>& x) {
+    return neg(x);
+}
+
+// Multiplication: x * y
+std::shared_ptr<Tensor> operator*(const std::shared_ptr<Tensor>& x0, 
+                                  const std::shared_ptr<Tensor>& x1) {
+    return mul(x0, x1);
+}
+
+std::shared_ptr<Tensor> operator*(const std::shared_ptr<Tensor>& x, float c) {
+    Array c_array = as_array(c);
+    auto c_tensor = std::make_shared<Tensor>(c_array);
+    return mul(x, c_tensor);
+}
+
+std::shared_ptr<Tensor> operator*(float c, const std::shared_ptr<Tensor>& x) {
+    return operator*(x, c);  // Commutative
+}
+
+// Division: x / y
+std::shared_ptr<Tensor> operator/(const std::shared_ptr<Tensor>& x0, 
+                                  const std::shared_ptr<Tensor>& x1) {
+    return div(x0, x1);
+}
+
+std::shared_ptr<Tensor> operator/(const std::shared_ptr<Tensor>& x, float c) {
+    Array c_array = as_array(c);
+    auto c_tensor = std::make_shared<Tensor>(c_array);
+    return div(x, c_tensor);
+}
+
+std::shared_ptr<Tensor> operator/(float c, const std::shared_ptr<Tensor>& x) {
+    Array c_array = as_array(c);
+    auto c_tensor = std::make_shared<Tensor>(c_array);
+    return div(c_tensor, x);
+}
+
 } // namespace miniTensor
 

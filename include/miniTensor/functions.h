@@ -208,6 +208,34 @@ std::shared_ptr<Tensor> linear_func(const std::shared_ptr<Tensor>& x,
                                        const std::shared_ptr<Tensor>& b = nullptr);
 std::shared_ptr<Tensor> sigmoid(const std::shared_ptr<Tensor>& x);
 
+// Operator overloads for Tensor
+// Addition: x + y
+std::shared_ptr<Tensor> operator+(const std::shared_ptr<Tensor>& x0, 
+                                  const std::shared_ptr<Tensor>& x1);
+std::shared_ptr<Tensor> operator+(const std::shared_ptr<Tensor>& x, float c);
+std::shared_ptr<Tensor> operator+(float c, const std::shared_ptr<Tensor>& x);
+
+// Subtraction: x - y
+std::shared_ptr<Tensor> operator-(const std::shared_ptr<Tensor>& x0, 
+                                  const std::shared_ptr<Tensor>& x1);
+std::shared_ptr<Tensor> operator-(const std::shared_ptr<Tensor>& x, float c);
+std::shared_ptr<Tensor> operator-(float c, const std::shared_ptr<Tensor>& x);
+
+// Unary minus: -x
+std::shared_ptr<Tensor> operator-(const std::shared_ptr<Tensor>& x);
+
+// Multiplication: x * y
+std::shared_ptr<Tensor> operator*(const std::shared_ptr<Tensor>& x0, 
+                                  const std::shared_ptr<Tensor>& x1);
+std::shared_ptr<Tensor> operator*(const std::shared_ptr<Tensor>& x, float c);
+std::shared_ptr<Tensor> operator*(float c, const std::shared_ptr<Tensor>& x);
+
+// Division: x / y
+std::shared_ptr<Tensor> operator/(const std::shared_ptr<Tensor>& x0, 
+                                  const std::shared_ptr<Tensor>& x1);
+std::shared_ptr<Tensor> operator/(const std::shared_ptr<Tensor>& x, float c);
+std::shared_ptr<Tensor> operator/(float c, const std::shared_ptr<Tensor>& x);
+
 } // namespace miniTensor
 
 #endif // MINITENSOR_FUNCTIONS_H
