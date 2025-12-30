@@ -1,0 +1,254 @@
+#include "miniTensor/core.h"
+#include <sstream>
+#include <cmath>
+#include <iostream>
+#include <algorithm>
+#include <unordered_set>
+
+namespace miniTensor {
+
+// Initialize static member
+bool Config::enable_backprop = true;
+
+// Convert scalar to array
+Array as_array(float x) {
+    Array arr(1, 1);
+    arr(0, 0) = x;
+    return arr;
+}
+
+Array as_array(const Array& x) {
+    return x;
+}
+
+// Tensor implementation
+Tensor::Tensor(const Array& data, const std::string& name)
+    : data(data), name(name), grad(nullptr), creator(nullptr), generation(0) {
+}
+
+Tensor::Tensor(float scalar, const std::string& name)
+    : data(as_array(scalar)), name(name), grad(nullptr), creator(nullptr), generation(0) {
+}
+
+void Tensor::set_creator(std::shared_ptr<Function> func) {
+    creator = func;
+    generation = func->generation + 1;
+}
+
+void Tensor::backward(bool retain_grad, bool create_graph) {
+    if (!Config::enable_backprop) {
+        return;
+    }
+    
+    if (grad == nullptr) {
+        Array ones = Array::Ones(data.rows(), data.cols());
+        grad = std::make_shared<Tensor>(ones);
+    }
+
+    std::vector<std::shared_ptr<Function>> funcs;
+    std::unordered_set<Function*> seen_set;
+
+    auto add_func = [&](std::shared_ptr<Function> f) {
+        if (f && seen_set.find(f.get()) == seen_set.end()) {
+            funcs.push_back(f);
+            seen_set.insert(f.get());
+            // Sort by generation (ascending), like Python: funcs.sort(key=lambda x: x.generation)
+            // Python uses pop() which removes from end, so we sort ascending and pop from end
+            std::sort(funcs.begin(), funcs.end(), 
+                [](const std::shared_ptr<Function>& a, const std::shared_ptr<Function>& b) { 
+                    return a->generation < b->generation; 
+                });
+        }
+    };
+
+    if (creator != nullptr) {
+        add_func(creator);
+    } else {
+        // If no creator, this is a leaf variable, nothing to do
+        return;
+    }
+
+    while (!funcs.empty()) {
+        // Python: f = funcs.pop() - removes from end (highest generation)
+        // We sort ascending, so back() is highest generation, pop_back() removes it
+        std::shared_ptr<Function> f = funcs.back();
+        funcs.pop_back();
+
+        // Collect gradients from outputs (like Python: gys = [output().grad for output in f.outputs])
+        // In Python, if grad is None, the list contains None
+        // Python: gys = [output().grad for output in f.outputs]
+        // Then: f.backward(*gys) - unpacks the list as individual arguments
+        // Python backward methods receive individual args (e.g., backward(self, gy))
+        // For single-output functions, backward(self, gy) receives the first (and only) grad
+        std::vector<Array> gys;
+        bool skip_this_function = false;
+        for (auto& output : f->outputs) {
+            if (auto output_ptr = output.lock()) {
+                if (output_ptr->grad) {
+                    gys.push_back(output_ptr->grad->data);
+                } else {
+                    // In Python, None would be in the list, but backward would fail with None
+                    // So we skip functions where output has None grad (no gradient to propagate)
+                    skip_this_function = true;
+                    break;
+                }
+            } else {
+                // Output was deleted, skip this function
+                skip_this_function = true;
+                break;
+            }
+        }
+
+        // Skip this function if any output has None grad or was deleted
+        if (skip_this_function || gys.empty()) {
+            continue;
+        }
+
+        // Call backward (Python: f.backward(*gys))
+        // In Python, backward receives individual args, but we pass vector
+        // Python backward methods handle None grads, but ours expect valid arrays
+        bool old_enable = Config::enable_backprop;
+        Config::enable_backprop = create_graph;
+        
+        std::vector<Array> gxs = f->backward(gys);
+        Config::enable_backprop = old_enable;
+
+        // Update input gradients (Python: for x, gx in zip(f.inputs, gxs))
+        for (size_t i = 0; i < f->inputs.size() && i < gxs.size(); ++i) {
+            auto& x = f->inputs[i];
+            if (x->grad == nullptr) {
+                x->grad = std::make_shared<Tensor>(gxs[i]);
+            } else {
+                x->grad->data += gxs[i];
+            }
+
+            if (x->creator != nullptr) {
+                add_func(x->creator);
+            }
+        }
+
+        // Clear intermediate grads if not retaining (Python: if not retain_grad)
+        // In Python: for y in f.outputs: y().grad = None
+        // This clears grads AFTER updating inputs, so inputs can still use the grads
+        // But we need to be careful: don't clear grad if it's still needed by other functions
+        // In Python, this is handled by the fact that we process functions in reverse generation order
+        if (!retain_grad) {
+            for (auto& output : f->outputs) {
+                if (auto output_ptr = output.lock()) {
+                    // Only clear if this output is not the final output (the one we called backward on)
+                    // Actually, Python clears all intermediate grads, so we should too
+                    output_ptr->grad = nullptr;
+                }
+            }
+        }
+    }
+}
+
+void Tensor::cleargrad() {
+    grad = nullptr;
+}
+
+std::pair<int, int> Tensor::shape() const {
+    return {data.rows(), data.cols()};
+}
+
+int Tensor::ndim() const {
+    return 2; // Eigen Matrix is always 2D
+}
+
+int Tensor::size() const {
+    return data.size();
+}
+
+std::string Tensor::repr() const {
+    std::ostringstream oss;
+    oss << "variable(";
+    if (data.size() == 0) {
+        oss << "None";
+    } else {
+        oss << "\n" << data;
+    }
+    oss << ")";
+    return oss.str();
+}
+
+// Function implementation
+Function::Function() : generation(0) {
+}
+
+std::shared_ptr<Tensor> Function::call(const std::vector<std::shared_ptr<Tensor>>& inputs) {
+    this->inputs = inputs;
+    
+    std::vector<Array> xs;
+    for (auto& input : inputs) {
+        xs.push_back(input->data);
+    }
+
+    std::vector<Array> ys = forward(xs);
+    
+    std::vector<std::shared_ptr<Tensor>> outputs;
+    for (auto& y : ys) {
+        outputs.push_back(std::make_shared<Tensor>(y));
+    }
+
+    if (Config::enable_backprop) {
+        int max_gen = 0;
+        for (auto& input : inputs) {
+            max_gen = std::max(max_gen, input->generation);
+        }
+        this->generation = max_gen;
+
+        // Store this Function as shared_ptr so it stays alive
+        // Use enable_shared_from_this to get shared_ptr to this
+        std::shared_ptr<Function> self_ptr = shared_from_this();
+        for (auto& output : outputs) {
+            output->set_creator(self_ptr);
+            this->outputs.push_back(std::weak_ptr<Tensor>(output));
+        }
+    }
+
+    return outputs[0];
+}
+
+// Helper functions
+std::shared_ptr<Tensor> as_tensor(const std::shared_ptr<Tensor>& obj) {
+    return obj;
+}
+
+std::shared_ptr<Tensor> as_tensor(const Array& obj) {
+    return std::make_shared<Tensor>(obj);
+}
+
+std::shared_ptr<Tensor> as_tensor(float scalar) {
+    return std::make_shared<Tensor>(scalar);
+}
+
+// ConfigContext implementation
+ConfigContext::ConfigContext(const std::string& name, bool value) : name(name) {
+    if (name == "enable_backprop") {
+        old_value = Config::enable_backprop;
+        Config::enable_backprop = value;
+    }
+}
+
+ConfigContext::~ConfigContext() {
+    if (name == "enable_backprop") {
+        Config::enable_backprop = old_value;
+    }
+}
+
+ConfigContext no_grad() {
+    return ConfigContext("enable_backprop", false);
+}
+
+// Parameter implementation
+Parameter::Parameter(const Array& data, const std::string& name)
+    : Tensor(data, name) {
+}
+
+Parameter::Parameter(float scalar, const std::string& name)
+    : Tensor(scalar, name) {
+}
+
+} // namespace miniTensor
+
