@@ -4,6 +4,7 @@ build/
 *.so
 *.dylib
 *.exe
+.idea
 bin/
 CMakeCache.txt
 CMakeFiles/
