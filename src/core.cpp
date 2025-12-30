@@ -52,8 +52,6 @@ void Tensor::backward(bool retain_grad, bool create_graph) {
         if (f && seen_set.find(f.get()) == seen_set.end()) {
             funcs.push_back(f);
             seen_set.insert(f.get());
-            // Sort by generation (ascending), like Python: funcs.sort(key=lambda x: x.generation)
-            // Python uses pop() which removes from end, so we sort ascending and pop from end
             std::sort(funcs.begin(), funcs.end(), 
                 [](const std::shared_ptr<Function>& a, const std::shared_ptr<Function>& b) { 
                     return a->generation < b->generation; 
@@ -69,17 +67,9 @@ void Tensor::backward(bool retain_grad, bool create_graph) {
     }
 
     while (!funcs.empty()) {
-        // Python: f = funcs.pop() - removes from end (highest generation)
-        // We sort ascending, so back() is highest generation, pop_back() removes it
         std::shared_ptr<Function> f = funcs.back();
         funcs.pop_back();
 
-        // Collect gradients from outputs (like Python: gys = [output().grad for output in f.outputs])
-        // In Python, if grad is None, the list contains None
-        // Python: gys = [output().grad for output in f.outputs]
-        // Then: f.backward(*gys) - unpacks the list as individual arguments
-        // Python backward methods receive individual args (e.g., backward(self, gy))
-        // For single-output functions, backward(self, gy) receives the first (and only) grad
         std::vector<Array> gys;
         bool skip_this_function = false;
         for (auto& output : f->outputs) {
@@ -87,8 +77,6 @@ void Tensor::backward(bool retain_grad, bool create_graph) {
                 if (output_ptr->grad) {
                     gys.push_back(output_ptr->grad->data);
                 } else {
-                    // In Python, None would be in the list, but backward would fail with None
-                    // So we skip functions where output has None grad (no gradient to propagate)
                     skip_this_function = true;
                     break;
                 }
@@ -104,16 +92,12 @@ void Tensor::backward(bool retain_grad, bool create_graph) {
             continue;
         }
 
-        // Call backward (Python: f.backward(*gys))
-        // In Python, backward receives individual args, but we pass vector
-        // Python backward methods handle None grads, but ours expect valid arrays
         bool old_enable = Config::enable_backprop;
         Config::enable_backprop = create_graph;
         
         std::vector<Array> gxs = f->backward(gys);
         Config::enable_backprop = old_enable;
 
-        // Update input gradients (Python: for x, gx in zip(f.inputs, gxs))
         for (size_t i = 0; i < f->inputs.size() && i < gxs.size(); ++i) {
             auto& x = f->inputs[i];
             if (x->grad == nullptr) {
@@ -127,11 +111,6 @@ void Tensor::backward(bool retain_grad, bool create_graph) {
             }
         }
 
-        // Clear intermediate grads if not retaining (Python: if not retain_grad)
-        // In Python: for y in f.outputs: y().grad = None
-        // This clears grads AFTER updating inputs, so inputs can still use the grads
-        // But we need to be careful: don't clear grad if it's still needed by other functions
-        // In Python, this is handled by the fact that we process functions in reverse generation order
         if (!retain_grad) {
             for (auto& output : f->outputs) {
                 if (auto output_ptr = output.lock()) {
