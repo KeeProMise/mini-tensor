@@ -31,4 +31,8 @@ int main() {
   std::cout << "\n";
   std::cout << "=== 计算图（DOT格式，可用于Graphviz）===\n";
   std::cout << z->to_dot() << std::endl;
+  
+  std::cout << "\n";
+  std::cout << "=== 计算图（DOT格式，包含tensor值）===\n";
+  std::cout << z->to_dot(true) << std::endl;
 }

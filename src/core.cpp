@@ -552,8 +552,70 @@ void print_computation_graph(const Tensor* tensor,
     os << "\nRoot Tensor: T" << tensor_ids[tensor] << "\n";
 }
 
+// Helper function to format tensor value for DOT label (simplified for large tensors)
+std::string format_tensor_value_for_dot(const Array& arr, int max_elements = 8) {
+    std::ostringstream oss;
+    int rows = arr.rows();
+    int cols = arr.cols();
+    int total_size = rows * cols;
+    
+    if (total_size == 0) {
+        return "[]";
+    }
+    
+    // For scalar
+    if (total_size == 1) {
+        oss << format_float(arr(0, 0));
+        return oss.str();
+    }
+    
+    // For small tensors, show all values
+    if (total_size <= max_elements) {
+        if (rows == 1) {
+            // Row vector
+            oss << "[";
+            for (int j = 0; j < cols; ++j) {
+                oss << format_float(arr(0, j));
+                if (j < cols - 1) oss << ",";
+            }
+            oss << "]";
+        } else if (cols == 1) {
+            // Column vector
+            oss << "[";
+            for (int i = 0; i < rows; ++i) {
+                oss << format_float(arr(i, 0));
+                if (i < rows - 1) oss << ";";
+            }
+            oss << "]";
+        } else {
+            // Matrix - show compact format
+            oss << "[";
+            for (int i = 0; i < rows && i < 3; ++i) {
+                if (i > 0) oss << ";";
+                for (int j = 0; j < cols && j < 3; ++j) {
+                    oss << format_float(arr(i, j));
+                    if (j < cols - 1 && j < 2) oss << ",";
+                }
+                if (cols > 3) oss << "...";
+            }
+            if (rows > 3) oss << ";...";
+            oss << "]";
+        }
+    } else {
+        // For large tensors, show summary
+        oss << "[" << format_float(arr(0, 0));
+        if (total_size > 1) {
+            oss << ",...," << format_float(arr(rows-1, cols-1));
+        }
+        oss << "]";
+        oss << " (" << rows << "x" << cols << ")";
+    }
+    
+    return oss.str();
+}
+
 // Generate DOT format for graphviz
-std::string computation_graph_to_dot(const std::shared_ptr<Tensor>& tensor) {
+std::string computation_graph_to_dot(const std::shared_ptr<Tensor>& tensor, bool withTensor) {
     if (!tensor) {
         return "digraph G { empty [label=\"Empty tensor\"]; }";
     }
@@ -583,6 +645,19 @@ std::string computation_graph_to_dot(const std::shared_ptr<Tensor>& tensor) {
         }
         auto shape = t->shape();
         label += "\\nshape=(" + std::to_string(shape.first) + "," + std::to_string(shape.second) + ")";
+        
+        // Add tensor value if requested
+        if (withTensor) {
+            std::string value_str = format_tensor_value_for_dot(t->data);
+            // Escape special characters for DOT format
+            std::string escaped_value;
+            for (char c : value_str) {
+                if (c == '"') escaped_value += "\\\"";
+                else if (c == '\\') escaped_value += "\\\\";
+                else escaped_value += c;
+            }
+            label += "\\nvalue=" + escaped_value;
+        }
         
         std::string color = t->creator ? "lightblue" : "lightgreen";
         oss << "  T" << id << " [label=\"" << label << "\", fillcolor=" << color 
@@ -634,11 +709,11 @@ void Tensor::print_graph(std::ostream& os, bool dot_format) const {
     print_computation_graph(this, os, dot_format);
 }
 
-std::string Tensor::to_dot() const {
+std::string Tensor::to_dot(bool withTensor) const {
     // For DOT format, we need shared_ptr for the recursive collection
     // Create a temporary shared_ptr (safe since we're only reading)
     auto temp = std::shared_ptr<Tensor>(const_cast<Tensor*>(this), [](Tensor*){});
-    return computation_graph_to_dot(temp);
+    return computation_graph_to_dot(temp, withTensor);
 }
 
 } // namespace miniTensor

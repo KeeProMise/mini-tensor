@@ -61,7 +61,7 @@ public:
     
     // Computation graph visualization
     void print_graph(std::ostream& os = std::cout, bool dot_format = false) const;
-    std::string to_dot() const;
+    std::string to_dot(bool withTensor = false) const;
 };
 
 // Stream output operator (like std::cout << tensor)
@@ -96,7 +96,7 @@ void print_computation_graph(const std::shared_ptr<Tensor>& tensor,
 void print_computation_graph(const Tensor* tensor, 
                             std::ostream& os = std::cout, 
                             bool dot_format = false);
-std::string computation_graph_to_dot(const std::shared_ptr<Tensor>& tensor);
+std::string computation_graph_to_dot(const std::shared_ptr<Tensor>& tensor, bool withTensor = false);
 
 // Context manager for config
 class ConfigContext {

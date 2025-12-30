@@ -107,6 +107,10 @@ z->print_graph();
 // 生成DOT格式的计算图（可用于Graphviz可视化）
 std::string dot_graph = z->to_dot();
 std::cout << dot_graph << std::endl;
+
+// 生成包含tensor值的DOT格式计算图
+std::string dot_with_values = z->to_dot(true);
+std::cout << dot_with_values << std::endl;
 ```
 
 ## 特性
@@ -132,10 +136,19 @@ tensor->print_graph(std::cout, false);  // 文本格式
 
 ### DOT格式（Graphviz）
 ```cpp
+// 基本格式（不包含tensor值）
 std::string dot = tensor->to_dot();
+
+// 包含tensor值的格式
+std::string dot_with_values = tensor->to_dot(true);
+
 // 可以将dot字符串保存到文件，然后用Graphviz渲染：
 // dot -Tpng graph.dot -o graph.png
 ```
+
+**参数说明：**
+- `to_dot(false)` 或 `to_dot()`: 只显示tensor的形状和名称（默认）
+- `to_dot(true)`: 同时显示tensor的值，对于大矩阵会自动简化显示
 
 ## 注意事项
 
