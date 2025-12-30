@@ -79,12 +79,19 @@ target_link_libraries(miniTensor_example miniTensor)
 add_executable(dnn_training_example examples/dnn_training_example.cpp)
 target_link_libraries(dnn_training_example miniTensor)
 
+add_executable(example examples/example.cpp)
+target_link_libraries(example miniTensor)
+
 # Set output directory
 set_target_properties(miniTensor_example PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
 set_target_properties(dnn_training_example PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+set_target_properties(example PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 

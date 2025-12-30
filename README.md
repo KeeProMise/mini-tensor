@@ -87,7 +87,6 @@ using namespace miniTensor;
 #include <Eigen/Dense>
 
 using namespace miniTensor;
-using namespace Eigen;
 
 // 创建张量
 Array data(2, 2);

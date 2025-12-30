@@ -9,7 +9,21 @@ namespace miniTensor {
 std::vector<Array> Add::forward(const std::vector<Array>& xs) {
     x0_shape = {xs[0].rows(), xs[0].cols()};
     x1_shape = {xs[1].rows(), xs[1].cols()};
-    Array y = xs[0] + xs[1];
+    
+    // 处理标量广播
+    Array x0 = xs[0];
+    Array x1 = xs[1];
+    
+    if (x0.rows() == 1 && x0.cols() == 1 && (x0.rows() != x1.rows() || x0.cols() != x1.cols())) {
+        x0 = Array::Constant(x1.rows(), x1.cols(), x0(0, 0));
+        x0_shape = {x1.rows(), x1.cols()};
+    }
+    else if (x1.rows() == 1 && x1.cols() == 1 && (x0.rows() != x1.rows() || x0.cols() != x1.cols())) {
+        x1 = Array::Constant(x0.rows(), x0.cols(), x1(0, 0));
+        x1_shape = {x0.rows(), x0.cols()};
+    }
+    
+    Array y = x0 + x1;
     return {y};
 }
 
@@ -22,8 +36,11 @@ std::vector<Array> Add::backward(const std::vector<Array>& gys) {
     Array gx0 = gy;
     Array gx1 = gy;
     
-    if (x0_shape != x1_shape) {
+    // 如果原始输入是标量，需要sum到1x1
+    if (x0_shape.first == 1 && x0_shape.second == 1 && (gy.rows() != 1 || gy.cols() != 1)) {
         gx0 = sum_to(gy, x0_shape);
+    }
+    if (x1_shape.first == 1 && x1_shape.second == 1 && (gy.rows() != 1 || gy.cols() != 1)) {
         gx1 = sum_to(gy, x1_shape);
     }
     
@@ -34,7 +51,23 @@ std::vector<Array> Add::backward(const std::vector<Array>& gys) {
 std::vector<Array> Mul::forward(const std::vector<Array>& xs) {
     x0_shape = {xs[0].rows(), xs[0].cols()};
     x1_shape = {xs[1].rows(), xs[1].cols()};
-    Array y = xs[0].cwiseProduct(xs[1]);
+    
+    // 处理标量广播：如果一个是1x1，广播到另一个的形状
+    Array x0 = xs[0];
+    Array x1 = xs[1];
+    
+    // 如果x0是标量(1x1)，广播到x1的形状
+    if (x0.rows() == 1 && x0.cols() == 1 && (x0.rows() != x1.rows() || x0.cols() != x1.cols())) {
+        x0 = Array::Constant(x1.rows(), x1.cols(), x0(0, 0));
+        x0_shape = {x1.rows(), x1.cols()};
+    }
+    // 如果x1是标量(1x1)，广播到x0的形状
+    else if (x1.rows() == 1 && x1.cols() == 1 && (x0.rows() != x1.rows() || x0.cols() != x1.cols())) {
+        x1 = Array::Constant(x0.rows(), x0.cols(), x1(0, 0));
+        x1_shape = {x0.rows(), x0.cols()};
+    }
+    
+    Array y = x0.cwiseProduct(x1);
     return {y};
 }
 
@@ -47,11 +80,22 @@ std::vector<Array> Mul::backward(const std::vector<Array>& gys) {
     Array x0 = inputs[0]->data;
     Array x1 = inputs[1]->data;
     
+    // 处理标量广播：如果输入是标量，需要广播到gy的形状
+    if (x0.rows() == 1 && x0.cols() == 1 && (gy.rows() != 1 || gy.cols() != 1)) {
+        x0 = Array::Constant(gy.rows(), gy.cols(), x0(0, 0));
+    }
+    if (x1.rows() == 1 && x1.cols() == 1 && (gy.rows() != 1 || gy.cols() != 1)) {
+        x1 = Array::Constant(gy.rows(), gy.cols(), x1(0, 0));
+    }
+    
     Array gx0 = gy.cwiseProduct(x1);
     Array gx1 = gy.cwiseProduct(x0);
     
-    if (x0_shape != x1_shape) {
+    // 如果原始输入是标量，需要sum到1x1
+    if (x0_shape.first == 1 && x0_shape.second == 1 && (gx0.rows() != 1 || gx0.cols() != 1)) {
         gx0 = sum_to(gx0, x0_shape);
+    }
+    if (x1_shape.first == 1 && x1_shape.second == 1 && (gx1.rows() != 1 || gx1.cols() != 1)) {
         gx1 = sum_to(gx1, x1_shape);
     }
     
@@ -71,7 +115,21 @@ std::vector<Array> Neg::backward(const std::vector<Array>& gys) {
 std::vector<Array> Sub::forward(const std::vector<Array>& xs) {
     x0_shape = {xs[0].rows(), xs[0].cols()};
     x1_shape = {xs[1].rows(), xs[1].cols()};
-    Array y = xs[0] - xs[1];
+    
+    // 处理标量广播
+    Array x0 = xs[0];
+    Array x1 = xs[1];
+    
+    if (x0.rows() == 1 && x0.cols() == 1 && (x0.rows() != x1.rows() || x0.cols() != x1.cols())) {
+        x0 = Array::Constant(x1.rows(), x1.cols(), x0(0, 0));
+        x0_shape = {x1.rows(), x1.cols()};
+    }
+    else if (x1.rows() == 1 && x1.cols() == 1 && (x0.rows() != x1.rows() || x0.cols() != x1.cols())) {
+        x1 = Array::Constant(x0.rows(), x0.cols(), x1(0, 0));
+        x1_shape = {x0.rows(), x0.cols()};
+    }
+    
+    Array y = x0 - x1;
     return {y};
 }
 
@@ -80,9 +138,12 @@ std::vector<Array> Sub::backward(const std::vector<Array>& gys) {
     Array gx0 = gy;
     Array gx1 = -gy;
     
-    if (x0_shape != x1_shape) {
-        gx0 = sum_to(gx0, x0_shape);
-        gx1 = sum_to(gx1, x1_shape);
+    // 如果原始输入是标量，需要sum到1x1
+    if (x0_shape.first == 1 && x0_shape.second == 1 && (gy.rows() != 1 || gy.cols() != 1)) {
+        gx0 = sum_to(gy, x0_shape);
+    }
+    if (x1_shape.first == 1 && x1_shape.second == 1 && (gy.rows() != 1 || gy.cols() != 1)) {
+        gx1 = sum_to(-gy, x1_shape);
     }
     
     return {gx0, gx1};
@@ -90,7 +151,18 @@ std::vector<Array> Sub::backward(const std::vector<Array>& gys) {
 
 // Div implementation
 std::vector<Array> Div::forward(const std::vector<Array>& xs) {
-    Array y = xs[0].cwiseQuotient(xs[1]);
+    // 处理标量广播
+    Array x0 = xs[0];
+    Array x1 = xs[1];
+    
+    if (x0.rows() == 1 && x0.cols() == 1 && (x0.rows() != x1.rows() || x0.cols() != x1.cols())) {
+        x0 = Array::Constant(x1.rows(), x1.cols(), x0(0, 0));
+    }
+    else if (x1.rows() == 1 && x1.cols() == 1 && (x0.rows() != x1.rows() || x0.cols() != x1.cols())) {
+        x1 = Array::Constant(x0.rows(), x0.cols(), x1(0, 0));
+    }
+    
+    Array y = x0.cwiseQuotient(x1);
     return {y};
 }
 
